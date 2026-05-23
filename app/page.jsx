@@ -37,6 +37,24 @@ const subtractRange = (ranges, [ss, se]) => {
 const clampRanges = (ranges, max) =>
   ranges.map(([s, e]) => [Math.min(s, max), Math.min(e, max)]).filter(([s, e]) => e > s);
 
+const snapRangeToTokens = ([start, end], offsets, promptLength) => {
+  if (!offsets.length) return [start, end];
+  const boundaries = new Set([0, promptLength]);
+  for (const [s, e] of offsets) {
+    boundaries.add(s);
+    boundaries.add(e);
+  }
+  const sorted = [...boundaries].sort((a, b) => a - b);
+  let snappedStart = 0;
+  let snappedEnd = promptLength;
+  for (const b of sorted) {
+    if (b <= start) snappedStart = b;
+    if (b >= end) { snappedEnd = b; break; }
+  }
+  if (snappedEnd <= snappedStart) return null;
+  return [snappedStart, snappedEnd];
+};
+
 const buildHighlightSegments = (text, layers) => {
   const all = [];
   for (const l of layers) {
@@ -52,16 +70,6 @@ const buildHighlightSegments = (text, layers) => {
   }
   if (cur < text.length) out.push({ text: text.slice(cur), color: null });
   return out;
-};
-
-const hashColor = (token) => {
-  let hash = 0;
-  for (let i = 0; i < token.length; i++) {
-    hash = (hash << 5) - hash + token.charCodeAt(i);
-    hash |= 0;
-  }
-  const hue = Math.abs(hash) % 360;
-  return `hsl(${hue} 65% 62%)`;
 };
 
 const extractSpecialIds = (tokenizerConfig) => {
@@ -284,18 +292,20 @@ export default function Home() {
   const applyHighlightToRange = (range) => {
     if (!range || range[1] <= range[0]) return;
     if (activeLayerId == null) return;
+    const snapped = snapRangeToTokens(range, tokenOffsets, prompt.length);
+    if (!snapped) return;
     if (activeMode === "erase") {
       setLayers((prev) =>
-        prev.map((l) => (l.id === activeLayerId ? { ...l, ranges: subtractRange(l.ranges, range) } : l))
+        prev.map((l) => (l.id === activeLayerId ? { ...l, ranges: subtractRange(l.ranges, snapped) } : l))
       );
       return;
     }
     setLayers((prev) =>
       prev.map((l) => {
         if (l.id === activeLayerId) {
-          return { ...l, ranges: normalizeRanges([...l.ranges, range]) };
+          return { ...l, ranges: normalizeRanges([...l.ranges, snapped]) };
         }
-        return { ...l, ranges: subtractRange(l.ranges, range) };
+        return { ...l, ranges: subtractRange(l.ranges, snapped) };
       })
     );
   };
@@ -310,24 +320,44 @@ export default function Home() {
 
   const highlightSegments = useMemo(() => buildHighlightSegments(prompt, layers), [prompt, layers]);
 
-  const layerTokenCounts = useMemo(() => {
-    const counts = {};
-    for (const l of layers) counts[l.id] = 0;
-    if (!tokenOffsets.length) return counts;
+  const tokenLayerMap = useMemo(() => {
+    const map = new Array(tokenOffsets.length).fill(null);
     for (let i = 0; i < tokenOffsets.length; i++) {
       const [ts, te] = tokenOffsets[i];
-      if (te <= ts) continue;
-      const mid = (ts + te) / 2;
-      for (const l of layers) {
-        const inLayer = l.ranges.some(([rs, re]) => mid >= rs && mid < re);
-        if (inLayer) {
-          counts[l.id]++;
-          break;
+      if (te > ts) {
+        const mid = (ts + te) / 2;
+        for (const l of layers) {
+          if (l.ranges.some(([rs, re]) => mid >= rs && mid < re)) {
+            map[i] = l.id;
+            break;
+          }
+        }
+      } else {
+        for (const l of layers) {
+          if (l.ranges.some(([rs, re]) => ts >= rs && ts <= re)) {
+            map[i] = l.id;
+            break;
+          }
         }
       }
     }
-    return counts;
+    return map;
   }, [layers, tokenOffsets]);
+
+  const layerColorById = useMemo(() => {
+    const m = new Map();
+    for (const l of layers) m.set(l.id, l.color);
+    return m;
+  }, [layers]);
+
+  const layerTokenCounts = useMemo(() => {
+    const counts = {};
+    for (const l of layers) counts[l.id] = 0;
+    for (const layerId of tokenLayerMap) {
+      if (layerId != null) counts[layerId] = (counts[layerId] || 0) + 1;
+    }
+    return counts;
+  }, [layers, tokenLayerMap]);
 
   const totalAssignedTokens = useMemo(
     () => Object.values(layerTokenCounts).reduce((a, b) => a + b, 0),
@@ -500,7 +530,7 @@ export default function Home() {
                   onClick={() => setStreamOpen((v) => !v)}
                 >
                   <span className={`field__caret ${streamOpen ? "field__caret--open" : ""}`}>▸</span>
-                  Token stream
+                  Token breakdown
                   {rows.length > 0 && <span className="muted"> ({rows.length})</span>}
                 </button>
                 {streamOpen && rows.length > 0 && (
@@ -512,16 +542,20 @@ export default function Home() {
                   {rows.length === 0 ? (
                     <p className="placeholder">Type a prompt to see color-coded tokens.</p>
                   ) : (
-                    rows.map((row, idx) => (
-                      <div key={idx} className="segment">
-                        <span
-                          className={`segment__token ${row.special ? "segment__token--special" : ""}`}
-                          style={{ background: hashColor(row.token) }}
-                        >
-                          {row.token}
-                        </span>
-                      </div>
-                    ))
+                    rows.map((row, idx) => {
+                      const layerId = tokenLayerMap[idx];
+                      const layerColor = layerId != null ? layerColorById.get(layerId) : null;
+                      return (
+                        <div key={idx} className="segment">
+                          <span
+                            className={`segment__token ${row.special ? "segment__token--special" : ""} ${layerColor ? "segment__token--layered" : ""}`}
+                            style={layerColor ? { background: layerColor + "44" } : undefined}
+                          >
+                            {row.token}
+                          </span>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               )}
