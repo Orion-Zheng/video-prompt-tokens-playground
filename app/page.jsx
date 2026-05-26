@@ -6,7 +6,6 @@ import { Tokenizer } from "@huggingface/tokenizers";
 
 const models = [
   { id: "google/umt5-xxl", label: "UmT5 XXL (Google)", maxContext: 500 },
-  { id: "google/gemma-3-27b-it", label: "Gemma 3 27B IT (Google)", maxContext: 131072 },
 ];
 
 const LAYER_COLORS = ["#f97316", "#a855f7", "#06b6d4", "#84cc16", "#ec4899", "#eab308", "#3b82f6", "#ef4444"];
@@ -379,15 +378,23 @@ export default function Home() {
 
   return (
     <>
-      <div className="backdrop" />
-      <header className="hero">
-        <h1>Video Prompt Tokens Playground</h1>
-        <p className="hero__lead">
-          Slice your prompt into labeled layers and see how each one eats into the model&apos;s context window.
-        </p>
+      <header className="site-header">
+        <div className="site-header__brand">
+          <h1 className="site-header__title">Prompt Token Studio</h1>
+          <span className="site-header__tagline">Plan a prompt against the context window</span>
+        </div>
+        <span className="site-header__poweredby">Powered by Reactor</span>
       </header>
 
-      <main className="grid">
+      <div className="app-shell">
+        <section className="hero">
+          <p className="hero__lead">
+            Slice your prompt into labeled layers and watch each one eat into the model&apos;s context window — built
+            on the Reactor developer platform.
+          </p>
+        </section>
+
+        <main className="grid">
         <section className="panel">
           <div className="controls-head">
             <div className="combobox combobox--inline" ref={modelFieldRef}>
@@ -724,11 +731,22 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="footer">
-        <div>
-          Tokenization runs locally via <code>@huggingface/tokenizers</code>. Models are fetched from the Hugging Face Hub; nothing leaves the browser.
-        </div>
-      </footer>
+        <footer className="footer">
+          <div>
+            Tokenization runs locally via <code>@huggingface/tokenizers</code>. Models are fetched from the Hugging Face Hub; nothing leaves the browser.
+          </div>
+          <div className="footer__links">
+            <a
+              className="footer__link"
+              href="https://docs.reactor.inc/overview"
+              target="_blank"
+              rel="noreferrer"
+            >
+              docs.reactor.inc
+            </a>
+          </div>
+        </footer>
+      </div>
     </>
   );
 }
