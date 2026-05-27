@@ -11,6 +11,9 @@ importers:
       '@huggingface/tokenizers':
         specifier: ^0.0.6
         version: 0.0.6
+      '@reactor-team/ui':
+        specifier: ^1.4.1
+        version: 1.4.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       next:
         specifier: 14.1.0
         version: 14.1.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
@@ -86,6 +89,12 @@ packages:
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
+
+  '@reactor-team/ui@1.4.1':
+    resolution: {integrity: sha512-/05IYSlCqbvA+cj+Boz8/lQkeXpnMFKWvfxZeBvVxU2ePI8eCZ5Ey+1EKbUyuGiWPZ7QT7QeKtHcsrN1LN9hkQ==}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
 
   '@swc/helpers@0.5.2':
     resolution: {integrity: sha512-E4KcWTpoLHqwPHLxidpOqQbcrZVgi0rsmmZXUle1jXmJfuIf/UWpczUJ7MZZ5tlxytgJXyp0w4PGkkeLiuIdZw==}
@@ -206,6 +215,11 @@ snapshots:
 
   '@next/swc-win32-x64-msvc@14.1.0':
     optional: true
+
+  '@reactor-team/ui@1.4.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
 
   '@swc/helpers@0.5.2':
     dependencies:
